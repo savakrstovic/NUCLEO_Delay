@@ -124,7 +124,12 @@ uint32_t ADC1_Read_Channel(uint32_t channel)
   ADC_ChannelConfTypeDef sConfig = {0};
   sConfig.Channel = channel;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  // 247.5 cycles at the 42.5 MHz ADC clock is ~5.8us of sampling. A pot
+  // presents up to a quarter of its track resistance as source impedance
+  // (2.5k for a 10k pot, 25k for a 100k), and the old 2.5 cycles gave only
+  // 59ns - far too short to charge the sampling cap, which showed up as
+  // noisy readings and crosstalk between the three channels.
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;

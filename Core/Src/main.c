@@ -37,11 +37,36 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-// Define the mapping constants based on a 170MHz / 4 (42.5MHz) HRTIM clock
 #define ADC_MIN 0
 #define ADC_MAX 4095
-#define HRTIM_TICKS_MIN 425      // ~100kHz BBD clock (42.5MHz / 425)
-#define HRTIM_TICKS_MAX 10625    // ~4kHz BBD clock (42.5MHz / 10625)
+
+/* --- BBD clock range -----------------------------------------------------
+ * The MN3005 is specified for fCP = 10 kHz .. 100 kHz, i.e. 204.8 ms down to
+ * 20.48 ms per chip (delay = 2048 / fCP: 4096 stages over a two-phase clock).
+ * Below 10 kHz is not merely a slow setting - the charge packets leak faster
+ * than they are passed along. Longer delays come from routing through more
+ * BBDs, not from slowing the clock. The old 10625 (4 kHz) was 2.5x outside
+ * the device.
+ *
+ * Timers A..D run at fHRTIM x 4 = 680 MHz (MUL4), the finest prescaler that
+ * still spans essentially the whole range: ~0.25 cents of pitch per tick at
+ * the short-delay end, against 4.1 cents at DIV4. Its 16-bit period register
+ * bottoms out at 10.38 kHz rather than 10 kHz, costing ~4% of the maximum
+ * delay per chip - accepted in exchange for the resolution.
+ */
+#define HRTIM_COUNTER_HZ    680000000UL
+#define HRTIM_TICKS_MIN     6800     // 100.0 kHz -> 20.48 ms (chip's fastest clock)
+#define HRTIM_TICKS_MAX     65503    //  10.4 kHz -> 197.3 ms (period register ceiling)
+
+/* Hardware limits on the HRTIM period register: for prescalers finer than
+ * DIV1 the reference manual requires 0x0060 <= PER <= 0xFFDF. The LFO adds up
+ * to +/-10% on top of the base period, so at a long delay an upward swing
+ * would wrap 16 bits and throw the BBD clock a decade off in a single tick. */
+#define HRTIM_PERIOD_MIN_HW 0x0060u  // 96
+#define HRTIM_PERIOD_MAX_HW 0xFFDFu  // 65503
+
+/* Tap tempo: ticks = ms * HRTIM_COUNTER_HZ / (2048 * 1000) */
+#define TAP_MS_TO_TICKS     332.03125f
 
 /* --- Wow & Flutter LFO rate ----------------------------------------------
  * The LFO phase accumulator is 32 bits and one full wrap is exactly one
@@ -159,10 +184,15 @@ uint32_t ADC1_Read_Channel(uint32_t channel)
   */
 void HRTIM_Update_Frequency(uint32_t targetPeriodTicks)
 {
-    if (targetPeriodTicks % 2 != 0)
-    {
-        targetPeriodTicks++;
-    }
+    /* Clamp first. The LFO can push the request past the register range at
+     * either end of the sweep, and PER is only 16 bits - an unclamped
+     * overflow wraps and shifts the BBD clock by a decade instantly. */
+    if (targetPeriodTicks < HRTIM_PERIOD_MIN_HW) targetPeriodTicks = HRTIM_PERIOD_MIN_HW;
+    if (targetPeriodTicks > HRTIM_PERIOD_MAX_HW) targetPeriodTicks = HRTIM_PERIOD_MAX_HW;
+
+    /* Round DOWN to even, so the compare is an exact half period. Rounding up
+     * would carry 0xFFDF one past the ceiling just clamped to. */
+    targetPeriodTicks &= ~1u;
     // Update Timer A directly (it's driving our pin)
     __HAL_HRTIM_SETPERIOD(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A, targetPeriodTicks);
     __HAL_HRTIM_SETCOMPARE(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A, HRTIM_COMPAREUNIT_1, (targetPeriodTicks / 2));
@@ -399,14 +429,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             uint32_t avg_ms = total_ms / valid_taps;
             
             // Limit to physical pedal bounds (20ms to 600ms)
-            if (avg_ms < 20) avg_ms = 20;
-            if (avg_ms > 600) avg_ms = 600;
+            // Bound to what one MN3005 can actually produce at MUL4.
+            // NOTE: assumes the tapped interval refers to a single BBD. Once the
+            // DG333A routes through N chips the repeat heard is N times this, and
+            // this mapping has to take the selected path into account.
+            if (avg_ms < 21)  avg_ms = 21;   // 20.48 ms at the 100 kHz limit
+            if (avg_ms > 197) avg_ms = 197;  // 197.3 ms at the register ceiling
             
             current_tempo_ms = avg_ms;
             
             // Convert tapped tempo (ms) to BBD HRTIM ticks
-            // Formula: ticks = avg_ms * (42.5MHz / 2048000) = avg_ms * 20.7519f
-            uint32_t target_ticks = (uint32_t)((float)avg_ms * 20.7519f);
+            // Formula: ticks = avg_ms * (680MHz / 2048000) = avg_ms * 332.03125f
+            uint32_t target_ticks = (uint32_t)((float)avg_ms * TAP_MS_TO_TICKS);
             
             if(target_ticks < HRTIM_TICKS_MIN) target_ticks = HRTIM_TICKS_MIN;
             if(target_ticks > HRTIM_TICKS_MAX) target_ticks = HRTIM_TICKS_MAX;

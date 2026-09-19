@@ -228,6 +228,18 @@ int main(void)
   MX_CORDIC_Init();
   MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
+  /* The Tap Tempo button is polled, with a shift-register debounce in the
+   * TIM6 callback. PC13 has been in EXTI mode since the project was created,
+   * but CubeMX 6.18.1 additionally enabled EXTI15_10_IRQn, so from that
+   * regeneration onward every press - and every contact bounce - raises an
+   * interrupt at preempt priority 0 that runs an empty weak callback.
+   *
+   * Disabling the line leaves PC13 configured as a readable input, so
+   * HAL_GPIO_ReadPin and the debounce below are unaffected. Setting the pin
+   * to plain GPIO_Input in CubeMX would make this unnecessary, but doing it
+   * here means a regeneration cannot quietly switch the interrupt back on. */
+  HAL_NVIC_DisableIRQ(USER_BUTTON_EXTI_IRQn);
+
   // FIX: Force TA1 to toggle based on its OWN Timer A events (50% duty cycle)
   HRTIM_OutputCfgTypeDef pOutputCfg = {0};
   pOutputCfg.Polarity = HRTIM_OUTPUTPOLARITY_HIGH;

@@ -148,8 +148,6 @@ void MX_HRTIM1_Init(void)
   {
     Error_Handler();
   }
-  pTimeBaseCfg.Period = 0xFFDF;
-  pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_MUL32;
   if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_TIMER_B, &pTimeBaseCfg) != HAL_OK)
   {
     Error_Handler();
@@ -158,6 +156,8 @@ void MX_HRTIM1_Init(void)
   {
     Error_Handler();
   }
+  pTimeBaseCfg.Period = 0xFFDF;
+  pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_MUL32;
   if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_TIMER_C, &pTimeBaseCfg) != HAL_OK)
   {
     Error_Handler();

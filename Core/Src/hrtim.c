@@ -175,44 +175,15 @@ void MX_HRTIM1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN HRTIM1_Init 2 */
-  /* ---------------------------------------------------------------------
-   * Force the HRTIM counter clock to fHRTIM / 4 = 42.5 MHz.
+  /* The HRTIM counter clock is fHRTIM / 4 = 42.5 MHz, set in CubeMX as
+   * HRTIM1.PrescalerRatio_TA and generated above. Do not override it here:
+   * one source of truth. All of main.c assumes 42.5 MHz, i.e. 425 ticks ->
+   * 100 kHz (20 ms) and 10625 ticks -> 4 kHz (512 ms).
    *
-   * This MUST live here rather than in the .ioc. CubeMX has no parameter
-   * for the HRTIM prescaler, so a value written into NUCLEO_Delay.ioc by
-   * hand is not in its model and is silently dropped the next time the
-   * project is saved - which is exactly what happened on the 6.18.0 ->
-   * 6.18.1 migration, reverting the generated code above to MUL32.
-   *
-   * At MUL32 the HAL documents a minimum PWM frequency of ~70 kHz at
-   * fHRTIM = 144 MHz (~83 kHz at our 170 MHz), so the 4 kHz bottom of the
-   * delay range is physically unreachable and every tick value is out by
-   * a factor of 128. All of main.c assumes 42.5 MHz:
-   *     425 ticks -> 100 kHz (20 ms),  10625 ticks -> 4 kHz (512 ms)
-   *
-   * Re-applying the timebase here overrides the generated configuration
-   * regardless of what CubeMX put above, and USER CODE blocks are
-   * preserved across regeneration.
-   * --------------------------------------------------------------------- */
-  HRTIM_TimeBaseCfgTypeDef pTimeBaseCfgDiv4 = {0};
-  pTimeBaseCfgDiv4.Period = 0xFFDF;
-  pTimeBaseCfgDiv4.RepetitionCounter = 0x00;
-  pTimeBaseCfgDiv4.PrescalerRatio = HRTIM_PRESCALERRATIO_DIV4;
-  pTimeBaseCfgDiv4.Mode = HRTIM_MODE_CONTINUOUS;
-
-  if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_MASTER, &pTimeBaseCfgDiv4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A, &pTimeBaseCfgDiv4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_HRTIM_TimeBaseConfig(&hhrtim1, HRTIM_TIMERINDEX_TIMER_B, &pTimeBaseCfgDiv4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
+   * Master and Timer B are still at the MUL32 default. Neither drives an
+   * output - TA1 is set and reset from Timer A's own period and compare -
+   * so this has no effect today, but Timer B must be moved to DIV4 in
+   * CubeMX before it can serve as the second BBD clock phase. */
   /* USER CODE END HRTIM1_Init 2 */
   HAL_HRTIM_MspPostInit(&hhrtim1);
 

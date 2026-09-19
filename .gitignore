@@ -12,8 +12,11 @@ Release/
 *.list
 
 # Eclipse / IDE local state (keep .project, .cproject, .mxproject, .ioc)
+# .settings/* rather than .settings/ - git will not descend into an excluded
+# directory, so the negation below only works with the glob form.
 .metadata/
-.settings/language.settings.xml
+.settings/*
+!.settings/org.eclipse.core.resources.prefs
 *.launch
 
 # OS / editor junk

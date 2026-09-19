@@ -1,0 +1,4 @@
+# STM32CubeIDE/CubeMX writes CRLF. Keep every file byte-for-byte as the
+# tools produce it: converting line endings creates spurious whole-file
+# diffs and risks confusing CubeMX when it re-reads NUCLEO_Delay.ioc.
+* -text

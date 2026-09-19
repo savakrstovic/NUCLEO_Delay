@@ -1,0 +1,19 @@
+# 🚀 Antigravity Agent Ignore Rules
+
+# Ignore massive build output directories (saves token costs)
+build/
+Debug/
+Release/
+
+# Ignore compiled objects and binaries
+*.o
+*.elf
+*.bin
+*.hex
+
+# Ignore heavy third-party libraries that the agent doesn't need to rewrite
+Middlewares/Third_Party/
+Drivers/CMSIS/
+
+# Ignore specific completed features you want locked down
+src/stable_legacy_module.c

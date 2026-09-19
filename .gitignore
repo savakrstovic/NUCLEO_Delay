@@ -1,0 +1,22 @@
+# STM32CubeIDE build output
+Debug/
+Release/
+*.o
+*.d
+*.su
+*.cyclo
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+
+# Eclipse / IDE local state (keep .project, .cproject, .mxproject, .ioc)
+.metadata/
+.settings/language.settings.xml
+*.launch
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp

@@ -42,6 +42,19 @@
 #define ADC_MAX 4095
 #define HRTIM_TICKS_MIN 425      // ~100kHz BBD clock (42.5MHz / 425)
 #define HRTIM_TICKS_MAX 10625    // ~4kHz BBD clock (42.5MHz / 10625)
+
+/* --- Wow & Flutter LFO rate ----------------------------------------------
+ * The LFO phase accumulator is 32 bits and one full wrap is exactly one
+ * sine cycle, so the per-tick step for a given rate is
+ *
+ *     step = 2^32 * f_lfo / f_tick        (f_tick = 1 kHz, the TIM6 rate)
+ *
+ * The previous value (100 + rate*5) peaked at 20575, i.e. one cycle every
+ * 209 seconds, which is far too slow to hear as modulation.
+ */
+#define LFO_STEP_MIN      429497u     // 0.1 Hz - slow tape "wow"
+#define LFO_STEP_MAX      42949673u   // 10 Hz  - fast "flutter"
+#define LFO_STEP_PER_LSB  ((LFO_STEP_MAX - LFO_STEP_MIN) / ADC_MAX)   // 10383
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -414,7 +427,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         }
 
         /* --- 4. Wow & Flutter LFO --- */
-        uint32_t phase_step = 100 + (pot_mod_rate * 5);
+        /* Quadratic taper on the Rate pot, matching the Time pot idiom, so the
+         * slow wow rates occupy most of the knob travel instead of being
+         * squeezed into the first few percent. */
+        uint32_t tapered_rate = ((uint32_t)pot_mod_rate * (uint32_t)pot_mod_rate) / ADC_MAX;
+        uint32_t phase_step   = LFO_STEP_MIN + (tapered_rate * LFO_STEP_PER_LSB);
         lfo_phase_accumulator += phase_step;
 
         int32_t cordic_input = (int32_t)lfo_phase_accumulator;
